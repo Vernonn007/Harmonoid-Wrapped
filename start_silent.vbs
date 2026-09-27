@@ -1,0 +1,1 @@
+CreateObject("Wscript.Shell").Run "python tracker.py", 0, False

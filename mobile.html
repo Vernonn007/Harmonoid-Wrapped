@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#04040a">
+<title>Harmonoid Remote</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#04040a !important;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',system-ui,sans-serif;color:#fff;position:relative}
+
+/* ── AMBIENT CANVAS ── */
+#amb{position:fixed;inset:0;z-index:0;width:100%;height:100%}
+
+/* ── MAIN LAYOUT ── */
+#app{
+  position:relative;z-index:1;
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,24px) 0 env(safe-area-inset-bottom,16px);
+}
+
+/* ── HEADER ── */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px 0;flex-shrink:0;
+}
+.header-brand{
+  font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:400;
+  color:rgba(255,255,255,0.55);letter-spacing:0.5px;
+}
+.header-brand em{font-style:italic;color:rgba(201,169,110,0.8)}
+.conn-dot{
+  width:7px;height:7px;border-radius:50%;background:#3d3d3d;
+  transition:background .3s;flex-shrink:0;
+}
+.conn-dot.on{background:#5db87a;box-shadow:0 0 8px rgba(93,184,122,0.5)}
+.conn-dot.off{background:#c0504a}
+
+/* ── ART SECTION ── */
+.art-section{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:24px 32px 16px;min-height:0;
+}
+.art-wrap{
+  position:relative;
+  width:min(72vw, 320px);
+  aspect-ratio:1;
+}
+.art-img{
+  width:100%;height:100%;border-radius:18px;
+  object-fit:cover;display:block;
+  box-shadow:0 24px 80px rgba(0,0,0,0.7),0 8px 24px rgba(0,0,0,0.5);
+  transition:opacity 0.5s ease;
+}
+.art-emoji{
+  width:100%;height:100%;border-radius:18px;
+  background:rgba(255,255,255,0.06);
+  display:flex;align-items:center;justify-content:center;
+  font-size:72px;
+  box-shadow:0 24px 80px rgba(0,0,0,0.7);
+}
+.art-glow{
+  position:absolute;inset:-20px;border-radius:38px;
+  opacity:0;transition:opacity 1s ease;
+  pointer-events:none;filter:blur(30px);z-index:-1;
+  background:radial-gradient(circle,var(--glow-color,rgba(201,169,110,0.4)),transparent 70%);
+}
+.art-wrap.playing .art-glow{opacity:1}
+
+/* ── TRACK INFO ── */
+.track-info{
+  padding:0 28px 8px;flex-shrink:0;text-align:center;
+}
+.track-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:28px;font-weight:400;line-height:1.15;
+  color:rgba(255,255,255,0.92);letter-spacing:-0.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  margin-bottom:6px;
+}
+.track-artist{
+  font-size:13px;color:rgba(255,255,255,0.48);font-weight:300;letter-spacing:0.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.track-status{
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(201,169,110,0.7);margin-bottom:8px;font-weight:400;
+  height:16px;
+}
+
+/* ── SEEK BAR ── */
+.seek-section{padding:8px 28px;flex-shrink:0}
+.seek-wrap{position:relative;height:32px;display:flex;align-items:center}
+.seek-track{
+  width:100%;height:2px;border-radius:2px;
+  background:rgba(255,255,255,0.12);position:relative;cursor:pointer;
+}
+.seek-fill{
+  height:100%;border-radius:2px;
+  background:linear-gradient(90deg,rgba(185,142,60,0.9),rgba(228,188,88,1));
+  pointer-events:none;transition:width 0.8s linear;width:0%;
+}
+.seek-thumb{
+  position:absolute;top:50%;right:-6px;transform:translateY(-50%);
+  width:12px;height:12px;border-radius:50%;
+  background:rgba(228,188,88,1);
+  box-shadow:0 0 8px rgba(200,160,60,0.6);
+  pointer-events:none;transition:right 0.8s linear;
+}
+.seek-times{
+  display:flex;justify-content:space-between;
+  font-size:11px;color:rgba(255,255,255,0.3);font-weight:300;
+  margin-top:4px;letter-spacing:0.3px;
+}
+
+/* ── CONTROLS ── */
+.controls{
+  display:flex;align-items:center;justify-content:center;
+  gap:0;padding:8px 24px 16px;flex-shrink:0;
+}
+.ctrl-btn{
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;cursor:pointer;
+  color:rgba(255,255,255,0.75);transition:all 0.15s;
+  border-radius:50%;user-select:none;
+  -webkit-user-select:none;
+}
+.ctrl-btn:active{transform:scale(0.88);opacity:0.6}
+.ctrl-btn.sm{width:52px;height:52px;font-size:22px}
+.ctrl-btn.lg{
+  width:68px;height:68px;font-size:28px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.1);
+  backdrop-filter:blur(20px);margin:0 16px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 4px 20px rgba(0,0,0,0.35);
+}
+.ctrl-btn.lg:active{transform:scale(0.90)}
+/* Gold top accent on play button */
+.ctrl-btn.lg{position:relative;overflow:hidden}
+.ctrl-btn.lg::before{
+  content:'';position:absolute;top:0;left:15%;right:15%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(218,172,76,0.9),transparent);
+  border-radius:1px;
+}
+
+/* ── LYRICS ── */
+.lyric-line{
+  font-family:'Cormorant Garamond',serif;
+  font-size:22px;font-weight:300;
+  line-height:1.55;letter-spacing:0.1px;
+  color:rgba(255,255,255,0.22);
+  margin-bottom:18px;cursor:pointer;
+  padding:2px 0;
+  transform-origin:left center;
+  transform:scale(1);
+  filter:blur(0px);
+  transition:
+    color 0.5s cubic-bezier(.25,.46,.45,.94),
+    transform 0.5s cubic-bezier(.25,.46,.45,.94),
+    text-shadow 0.6s ease,
+    filter 0.4s ease;
+  will-change:transform,color;
+}
+.lyric-line.active{
+  color:rgba(255,255,255,0.95);
+  font-weight:400;
+  transform:scale(1.14);
+  text-shadow:0 0 30px rgba(218,172,76,0.4),0 0 60px rgba(200,150,60,0.18);
+}
+.lyric-line.past{ color:rgba(255,255,255,0.38); filter:blur(0.2px); }
+.lyric-line.near{ color:rgba(255,255,255,0.62); }
+.lyrics-track-info{
+  text-align:center;margin-bottom:32px;padding-bottom:20px;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.lyrics-track-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:20px;font-weight:400;color:rgba(255,255,255,0.7);
+  margin-bottom:4px;
+}
+.lyrics-track-artist{
+  font-size:12px;color:rgba(255,255,255,0.3);font-weight:300;letter-spacing:0.3px;
+}
+.lyrics-no-sync{
+  font-family:'Cormorant Garamond',serif;
+  font-size:19px;font-weight:300;line-height:1.9;
+  color:rgba(255,255,255,0.55);white-space:pre-wrap;
+}
+
+/* ── GLASS PANEL (queue toggle) ── */
+.queue-toggle{
+  margin:0 24px 0;flex-shrink:0;
+  padding:14px 20px;border-radius:16px;
+  background:rgba(255,255,255,0.032);
+  border:1px solid rgba(255,255,255,0.08);
+  border-top-color:rgba(255,255,255,0.11);
+  
+  position:relative;overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  transition:background 0.2s;
+}
+.queue-toggle::before{
+  content:'';position:absolute;top:0;left:12%;right:12%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(218,172,76,0.85) 40%,rgba(232,188,88,1) 50%,rgba(218,172,76,0.85) 60%,transparent);
+  box-shadow:0 0 8px rgba(218,172,76,0.25);
+}
+.queue-toggle::after{
+  content:'';position:absolute;bottom:0;left:22%;right:22%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(190,145,58,0.65) 50%,transparent);
+}
+.queue-label{font-size:12px;font-weight:500;color:rgba(255,255,255,0.55);letter-spacing:1px;text-transform:uppercase}
+.queue-arrow{color:rgba(255,255,255,0.3);font-size:14px;transition:transform .25s}
+.queue-toggle.open .queue-arrow{transform:rotate(180deg)}
+
+/* ── QUEUE SHEET ── */
+.queue-sheet{
+  position:fixed;inset:0;z-index:50;
+  display:flex;flex-direction:column;
+  pointer-events:none;opacity:0;
+  transition:opacity 0.3s;
+}
+.queue-sheet.open{pointer-events:all;opacity:1}
+.queue-backdrop{position:absolute;inset:0;background:rgba(4,4,10,0.7);backdrop-filter:blur(8px)}
+.queue-panel{
+  position:absolute;bottom:0;left:0;right:0;
+  max-height:70vh;border-radius:24px 24px 0 0;
+  background:rgba(8,6,14,0.98);
+  border-top:1px solid rgba(255,255,255,0.09);
+  display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform 0.35s cubic-bezier(.22,1,.36,1);
+  padding-bottom:env(safe-area-inset-bottom,16px);
+  overflow:hidden;
+  position:relative;
+}
+.queue-panel::before{
+  content:'';position:absolute;top:0;left:15%;right:15%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(218,172,76,0.8) 50%,transparent);
+  box-shadow:0 0 10px rgba(218,172,76,0.2);
+}
+.queue-sheet.open .queue-panel{transform:translateY(0)}
+.queue-handle{width:36px;height:3px;border-radius:3px;background:rgba(255,255,255,0.2);margin:12px auto 16px;flex-shrink:0}
+.queue-title{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,0.28);text-align:center;margin-bottom:16px;font-weight:500;flex-shrink:0}
+.queue-list{overflow-y:auto;flex:1;padding:0 20px}
+.queue-item{
+  display:flex;align-items:center;gap:14px;
+  padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.queue-item:last-child{border-bottom:none}
+.queue-art{width:40px;height:40px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.06);flex-shrink:0}
+.queue-info{flex:1;min-width:0}
+.queue-name{font-size:13.5px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.85)}
+.queue-artist{font-size:12px;color:rgba(255,255,255,0.4);font-weight:300;margin-top:1px}
+.queue-item.active .queue-name{color:rgba(218,172,76,1)}
+.queue-item.active .queue-artist{color:rgba(218,172,76,0.6)}
+
+/* ── NOT CONNECTED STATE ── */
+#setup{
+  position:fixed;inset:0;z-index:100;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px;text-align:center;background:#04040a;
+  transition:opacity .4s;
+}
+#setup.hidden{opacity:0;pointer-events:none}
+.setup-icon{font-size:52px;margin-bottom:24px}
+.setup-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;margin-bottom:10px;color:rgba(255,255,255,0.85)}
+.setup-sub{font-size:13px;color:rgba(255,255,255,0.38);font-weight:300;line-height:1.7;margin-bottom:32px}
+.setup-input{
+  width:100%;padding:14px 18px;border-radius:14px;
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+  color:#fff;font-size:15px;outline:none;margin-bottom:12px;
+  font-family:'Inter',system-ui;
+}
+.setup-input::placeholder{color:rgba(255,255,255,0.25)}
+.setup-btn{
+  width:100%;padding:15px;border-radius:14px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,rgba(185,142,60,0.9),rgba(218,172,76,1));
+  color:#1a0e00;font-size:15px;font-weight:500;letter-spacing:0.3px;
+  box-shadow:0 4px 20px rgba(190,145,50,0.35);
+  transition:opacity .15s,transform .15s;
+}
+.setup-btn:active{opacity:0.85;transform:scale(0.98)}
+</style>
+</head>
+<body>
+
+<!-- AMBIENT -->
+<canvas id="amb"></canvas>
+
+<!-- SETUP SCREEN -->
+<div id="setup">
+  <div class="setup-icon">🎵</div>
+  <div class="setup-title">Harmonoid Remote</div>
+  <div class="setup-sub">Enter your PC's local IP address.<br>Both devices must be on the same WiFi.<br>Run <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:12px">ipconfig</code> on your PC to find it.</div>
+  <input class="setup-input" id="ip-input" type="text" placeholder="192.168.1.x" inputmode="decimal">
+  <button class="setup-btn" onclick="connect()">Connect</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+  <div class="header">
+    <div class="header-brand">Harmonoid <em>Remote</em></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="tab-now" onclick="switchTab('player')" style="background:rgba(218,172,76,0.15);border:1px solid rgba(218,172,76,0.35);color:rgba(218,172,76,1);padding:5px 12px;border-radius:20px;font-size:10px;font-weight:500;letter-spacing:.8px;cursor:pointer;transition:all .2s">NOW PLAYING</button>
+      <button id="tab-lyrics" onclick="switchTab('lyrics')" style="background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);padding:5px 12px;border-radius:20px;font-size:10px;font-weight:500;letter-spacing:.8px;cursor:pointer;transition:all .2s">LYRICS</button>
+      <button id="tab-stats" onclick="switchTab('stats')" style="background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);padding:5px 12px;border-radius:20px;font-size:10px;font-weight:500;letter-spacing:.8px;cursor:pointer;transition:all .2s">STATS</button>
+      <div class="conn-dot" id="conn-dot"></div>
+    </div>
+  </div>
+
+  <!-- PLAYER VIEW -->
+  <div id="player-view" style="display:flex;flex-direction:column;flex:1;min-height:0">
+
+  <div class="art-section">
+    <div class="art-wrap" id="art-wrap">
+      <div class="art-emoji" id="art-emoji">🎵</div>
+      <img class="art-img" id="art-img" style="display:none;position:absolute;inset:0" alt="">
+      <div class="art-glow" id="art-glow"></div>
+    </div>
+  </div>
+
+  <div class="track-info">
+    <div class="track-status" id="track-status"></div>
+    <div class="track-title" id="track-title">Not Playing</div>
+    <div class="track-artist" id="track-artist">—</div>
+  </div>
+
+  <div class="seek-section">
+    <div class="seek-wrap">
+      <div class="seek-track" id="seek-track">
+        <div class="seek-fill" id="seek-fill"></div>
+        <div class="seek-thumb" id="seek-thumb" style="display:none"></div>
+      </div>
+    </div>
+    <div class="seek-times">
+      <span id="t-cur">0:00</span>
+      <span id="t-dur">0:00</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn sm" onclick="ctrl('prev')" aria-label="Previous" id="prev-btn"></button>
+    <button class="ctrl-btn lg" id="play-btn" onclick="ctrl('play_pause')" aria-label="Play/Pause"></button>
+    <button class="ctrl-btn sm" onclick="ctrl('next')" aria-label="Next" id="next-btn"></button>
+  </div>
+
+  <div class="queue-toggle" id="queue-toggle" onclick="toggleQueue()">
+    <span class="queue-label">Recently played</span>
+    <span class="queue-arrow">▾</span>
+  </div>
+  </div><!-- end player-view -->
+
+  <!-- STATS VIEW -->
+  <div id="stats-view" style="display:none;flex:1;overflow-y:auto;padding:16px 16px 0;min-height:0">
+    <div id="stats-content" style="padding-bottom:40px">
+      <div style="text-align:center;padding:60px 0;color:rgba(255,255,255,0.2);font-size:13px;font-weight:300;font-style:italic;font-family:'Cormorant Garamond',serif">Loading your stats…</div>
+    </div>
+  </div>
+
+  <!-- LYRICS VIEW -->
+  <div id="lyrics-view" style="display:none;flex:1;overflow-y:auto;min-height:0;position:relative">
+    <div id="lyrics-content" style="padding:24px 28px 80px;min-height:100%">
+      <div id="lyrics-idle" style="text-align:center;padding:80px 20px;color:rgba(255,255,255,0.2);font-size:14px;font-weight:300;font-style:italic;font-family:'Cormorant Garamond',serif;line-height:1.8">
+        Play something in Harmonoid<br>to see lyrics
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- QUEUE SHEET -->
+<div class="queue-sheet" id="queue-sheet">
+  <div class="queue-backdrop" onclick="toggleQueue()"></div>
+  <div class="queue-panel">
+    <div class="queue-handle"></div>
+    <div class="queue-title">Recently played</div>
+    <div class="queue-list" id="queue-list"></div>
+  </div>
+</div>
+
+<script>
+// ── AMBIENT CANVAS ────────────────────────────────────────────────
+const ambCanvas = document.getElementById('amb');
+const ambCtx = ambCanvas.getContext('2d');
+let AW=0, AH=0;
+function resizeAmb(){ AW=window.innerWidth; AH=window.innerHeight; ambCanvas.width=AW; ambCanvas.height=AH; }
+resizeAmb(); window.addEventListener('resize', resizeAmb);
+
+const orbs=[
+  {x:.2,y:.2,vx:.00016,vy:.00012,r:1.0,c:[80,50,18]},
+  {x:.8,y:.2,vx:-.00014,vy:.00016,r:.92,c:[35,28,65]},
+  {x:.5,y:.8,vx:.00010,vy:-.00014,r:1.05,c:[22,45,60]},
+  {x:.8,y:.75,vx:-.00014,vy:-.00010,r:.85,c:[65,30,12]},
+];
+let ambTargets=orbs.map(o=>o.c.slice());
+let ambT=0, ambWarmup=0;
+
+function setAmbColors(cols){ if(cols) cols.forEach((c,i)=>{ if(ambTargets[i]) ambTargets[i]=c; }); }
+function lerp(a,b,t){ return a+(b-a)*t }
+
+function ambFrame(){
+  ambT+=0.0004; ambWarmup=Math.min(1,ambWarmup+0.004);
+  ambCtx.clearRect(0,0,AW,AH);
+  ambCtx.globalCompositeOperation='lighter';
+  orbs.forEach((o,i)=>{
+    o.x+=o.vx+Math.sin(ambT*(i+1)*.6)*.00008;
+    o.y+=o.vy+Math.cos(ambT*(i+1)*.5)*.00007;
+    if(o.x<-.1)o.vx=Math.abs(o.vx); if(o.x>1.1)o.vx=-Math.abs(o.vx);
+    if(o.y<-.1)o.vy=Math.abs(o.vy); if(o.y>1.1)o.vy=-Math.abs(o.vy);
+    o.c[0]=lerp(o.c[0],ambTargets[i][0],.01);
+    o.c[1]=lerp(o.c[1],ambTargets[i][1],.01);
+    o.c[2]=lerp(o.c[2],ambTargets[i][2],.01);
+    const px=o.x*AW,py=o.y*AH,rad=Math.max(AW,AH)*o.r;
+    const wob=1+Math.sin(ambT*(i*.7+1.3))*.06;
+    const [r,g,b]=o.c;
+    const grad=ambCtx.createRadialGradient(px,py,0,px,py,rad*wob);
+    grad.addColorStop(0,`rgba(${r},${g},${b},${0.22*ambWarmup})`);
+    grad.addColorStop(.35,`rgba(${r},${g},${b},${0.09*ambWarmup})`);
+    grad.addColorStop(.65,`rgba(${r},${g},${b},${0.02*ambWarmup})`);
+    grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    ambCtx.fillStyle=grad; ambCtx.beginPath(); ambCtx.arc(px,py,rad*wob,0,Math.PI*2); ambCtx.fill();
+  });
+  ambCtx.globalCompositeOperation='source-over';
+  const vig=ambCtx.createRadialGradient(AW/2,AH/2,0,AW/2,AH/2,Math.max(AW,AH)*.75);
+  vig.addColorStop(0,'rgba(4,4,10,0.3)');
+  vig.addColorStop(.5,'rgba(4,4,10,0.5)');
+  vig.addColorStop(1,'rgba(4,4,10,0.82)');
+  ambCtx.fillStyle=vig; ambCtx.fillRect(0,0,AW,AH);
+  requestAnimationFrame(ambFrame);
+}
+ambFrame();
+
+// ── COLOR EXTRACTION ──────────────────────────────────────────────
+let lastColorSrc='';
+function extractColors(src){
+  if(src===lastColorSrc) return; lastColorSrc=src;
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=20; c.height=20;
+    const cx=c.getContext('2d'); cx.drawImage(img,0,0,20,20);
+    const d=cx.getImageData(0,0,20,20).data;
+    const buckets={};
+    for(let i=0;i<d.length;i+=4){
+      if(d[i+3]<120) continue;
+      const r=(d[i]>>3)<<3,g=(d[i+1]>>3)<<3,b=(d[i+2]>>3)<<3;
+      const k=`${r},${g},${b}`;
+      if(!buckets[k]) buckets[k]={r,g,b,n:0};
+      buckets[k].n++;
+    }
+    const sorted=Object.values(buckets)
+      .filter(({r,g,b})=>{const mx=Math.max(r,g,b),mn=Math.min(r,g,b);return mx>18&&mn<230&&mx-mn>20;})
+      .sort((a,b)=>b.n-a.n);
+    const picked=[];
+    for(const col of sorted){
+      if(picked.length>=4) break;
+      const near=picked.some(p=>Math.abs(p.r-col.r)+Math.abs(p.g-col.g)+Math.abs(p.b-col.b)<55);
+      if(!near) picked.push(col);
+    }
+    while(picked.length<4) picked.push({r:35,g:25,b:55});
+    const bright=picked.map(({r,g,b})=>[
+      Math.min(220,Math.round(r*1.3+12)),
+      Math.min(220,Math.round(g*1.3+12)),
+      Math.min(220,Math.round(b*1.3+12)),
+    ]);
+    setAmbColors(bright);
+    // Update art glow color
+    const [r,g,b]=bright[0];
+    document.getElementById('art-glow').style.setProperty('--glow-color',`rgba(${r},${g},${b},0.45)`);
+  };
+  img.src=src;
+}
+
+// ── CONNECTION ────────────────────────────────────────────────────
+let BASE='', connected=false, playing=false;
+
+// Gold elegant SVG icons
+const GOLD='rgba(218,172,76,1)';
+const ICON_PLAY=`<svg width="26" height="26" viewBox="0 0 24 24" fill="${GOLD}"><path d="M8 5.14v14l11-7-11-7z"/></svg>`;
+const ICON_PAUSE=`<svg width="26" height="26" viewBox="0 0 24 24" fill="${GOLD}"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
+const ICON_PREV=`<svg width="22" height="22" viewBox="0 0 24 24" fill="${GOLD}" opacity=".85"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>`;
+const ICON_NEXT=`<svg width="22" height="22" viewBox="0 0 24 24" fill="${GOLD}" opacity=".85" style="transform:scaleX(-1)"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>`;
+let artCache={};
+let trackProgress=0, trackDuration=0, progressInterval=null;
+
+function artUrl(artist,title){
+  return `${BASE}/artwork?${new URLSearchParams({artist:artist||'',title:title||''})}`;
+}
+
+function connect(){
+  const ip=document.getElementById('ip-input').value.trim();
+  if(!ip) return;
+  BASE=`http://${ip}:8765`;
+  localStorage.setItem('hw_ip', ip);
+  startPolling();
+}
+
+// ── POLLING ───────────────────────────────────────────────────────
+let lastKey='';
+let currentTrackTitle='', currentTrackArtist='';
+function startPolling(){
+  poll();
+  setInterval(poll, 3000);
+}
+
+let currentTab = 'player';
+
+async function poll(){
+  try{
+    const res=await fetch(`${BASE}/now-playing`,{signal:AbortSignal.timeout(3000)});
+    const np=await res.json();
+    connected=true;
+    document.getElementById('conn-dot').className='conn-dot on';
+    document.getElementById('setup').classList.add('hidden');
+
+    // Only show player if we're on player tab — don't override stats tab
+    if(currentTab==='player'){
+      document.getElementById('app').style.display='flex';
+    }
+
+    playing = np?.playing||false;
+    const title  = np?.playing ? np.title  : (np?.last_title||'Not Playing');
+    const artist = np?.playing ? np.artist : (np?.last_artist||'—');
+    const key    = title+'::'+artist;
+
+    // Store globally so lyrics tab can access without reading hidden DOM
+    currentTrackTitle  = np?.playing ? (np.title||'')  : (np?.last_title||'');
+    currentTrackArtist = np?.playing ? (np.artist||'') : (np?.last_artist||'');
+
+    // Update position/duration from server — only if server sends real values
+    const serverDur = np?.duration_s||0;
+    const serverPos = np?.position_s||0;
+    if(serverDur > 0){
+      trackDuration = serverDur;
+      trackProgress = serverPos;
+    }
+
+    document.getElementById('play-btn').innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+    document.getElementById('track-status').innerHTML = playing
+      ? '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#5db87a;vertical-align:middle;margin-right:6px;animation:blink 2s infinite"></span>NOW PLAYING'
+      : '';
+    document.getElementById('track-title').textContent  = title;
+    document.getElementById('track-artist').textContent = artist;
+
+    updateSeek();
+
+    // Update lyrics position tracker
+    if(np?.position_s >= 0){
+      lyricsServerPos = np.position_s||0;
+      lyricsServerTs  = Date.now();
+    }
+
+    if(key!==lastKey && title!=='Not Playing'){
+      lastKey=key;
+      loadArt(artUrl(artist,title));
+      if(queueOpen) loadQueue();
+      // New track — reset and fetch lyrics
+      lyricsTrackKey=''; lyricsData=null;
+      stopLyricsSync();
+      if(currentTab==='lyrics') fetchLyrics();
+    } else if(currentTab==='lyrics' && !lyricsData && !lyricsLoading && title!=='Not Playing'){
+      fetchLyrics();
+    }
+
+    if(playing && trackDuration > 0){
+      document.getElementById('art-wrap').classList.add('playing');
+      startProgress();
+    } else {
+      document.getElementById('art-wrap').classList.remove('playing');
+      stopProgress();
+    }
+  }catch(e){
+    connected=false;
+    document.getElementById('conn-dot').className='conn-dot off';
+  }
+}
+
+function loadArt(src){
+  const img=document.getElementById('art-img');
+  const emoji=document.getElementById('art-emoji');
+  if(artCache[src]){
+    img.src=artCache[src]; img.style.display='block'; emoji.style.display='none';
+    extractColors(src); return;
+  }
+  const tmp=new Image(); tmp.crossOrigin='anonymous';
+  tmp.onload=()=>{ artCache[src]=src; img.src=src; img.style.display='block'; emoji.style.display='none'; extractColors(src); };
+  tmp.onerror=()=>{ img.style.display='none'; emoji.style.display='flex'; };
+  tmp.src=src;
+}
+
+// ── PROGRESS ─────────────────────────────────────────────────────
+function fmtTime(s){ const m=Math.floor(s/60); return m+':'+(Math.floor(s%60)+'').padStart(2,'0'); }
+function startProgress(){
+  if(progressInterval) return;
+  if(trackDuration <= 0) return; // don't count if no duration
+  progressInterval=setInterval(()=>{
+    trackProgress = Math.min(trackProgress+1, trackDuration);
+    updateSeek();
+    if(trackProgress >= trackDuration) stopProgress();
+  },1000);
+}
+function stopProgress(){ clearInterval(progressInterval); progressInterval=null; }
+function updateSeek(){
+  const hasDur = trackDuration > 0;
+  const pct = hasDur ? Math.min(100,(trackProgress/trackDuration)*100) : 0;
+  document.getElementById('seek-fill').style.width = pct+'%';
+  const thumb = document.getElementById('seek-thumb');
+  if(hasDur){
+    thumb.style.display='block';
+    thumb.style.right=`calc(${100-pct}% - 6px)`;
+  } else {
+    thumb.style.display='none';
+  }
+  document.getElementById('t-cur').textContent = hasDur ? fmtTime(trackProgress) : '-:--';
+  document.getElementById('t-dur').textContent = hasDur ? fmtTime(trackDuration)  : '-:--';
+}
+
+// Seek on tap
+document.getElementById('seek-track').addEventListener('click',e=>{
+  const rect=e.currentTarget.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  trackProgress=Math.round((trackDuration||240)*pct);
+  updateSeek();
+  // SMTC seek isn't reliable but we update local state for feel
+});
+
+// ── CONTROLS ─────────────────────────────────────────────────────
+async function ctrl(action){
+  if(!BASE) return;
+  // Haptic feedback on mobile
+  if(navigator.vibrate) navigator.vibrate(8);
+  try{
+    await fetch(`${BASE}/control`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action}),
+      signal:AbortSignal.timeout(2000)
+    });
+    if(action==='play_pause'){
+      playing=!playing;
+      document.getElementById('play-btn').innerHTML=playing?ICON_PAUSE:ICON_PLAY;
+      document.getElementById('art-wrap').classList.toggle('playing',playing);
+      playing?startProgress():stopProgress();
+    }
+    if(action==='next'||action==='prev'){
+      trackProgress=0; trackDuration=0; updateSeek();
+      setTimeout(poll,600);
+    }
+  }catch(e){}
+}
+
+// ── QUEUE ─────────────────────────────────────────────────────────
+let queueOpen=false;
+function toggleQueue(){
+  queueOpen=!queueOpen;
+  const sheet=document.getElementById('queue-sheet');
+  const toggle=document.getElementById('queue-toggle');
+  sheet.classList.toggle('open',queueOpen);
+  toggle.classList.toggle('open',queueOpen);
+  if(queueOpen) loadQueue();
+}
+
+async function loadQueue(){
+  if(!BASE) return;
+  try{
+    const [recRes, statsRes] = await Promise.all([
+      fetch(`${BASE}/recent`,{signal:AbortSignal.timeout(3000)}),
+      fetch(`${BASE}/stats`,{signal:AbortSignal.timeout(3000)})
+    ]);
+    const recent = await recRes.json();
+    const stats  = await statsRes.json();
+    const t = stats.totals||{};
+    const currentTitle = document.getElementById('track-title').textContent;
+
+    // Mini stats header
+    const statsHtml=`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;padding:0 2px">
+        ${[
+          ['Plays',t.plays?.toLocaleString()||'—'],
+          ['Hours',t.hours+'h'||'—'],
+          ['Artists',t.artists||'—']
+        ].map(([l,v])=>`
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:12px;padding:12px 8px;border:1px solid rgba(255,255,255,0.07);position:relative;overflow:hidden">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:rgba(255,255,255,0.88)">${v}</div>
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-top:3px">${l}</div>
+          </div>`).join('')}
+      </div>`;
+
+    const listHtml = recent.map(t=>{
+      const d = new Date(t.played_at);
+      const when = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const active = t.title===currentTitle;
+      return `
+        <div class="queue-item ${active?'active':''}">
+          <img class="queue-art" src="${artUrl(t.artist,t.title)}" onerror="this.style.background='rgba(255,255,255,0.06)'" crossorigin="anonymous" alt="">
+          <div class="queue-info">
+            <div class="queue-name">${t.title}</div>
+            <div class="queue-artist">${t.artist}</div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.22);font-weight:300;flex-shrink:0">${when}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('queue-list').innerHTML = statsHtml + listHtml;
+  }catch(e){}
+}
+
+// ── LYRICS ENGINE ─────────────────────────────────────────────────
+let lyricsData = null;       // [{time, text}]
+let lyricsTrackKey = '';
+let lyricsSyncInterval = null;
+let lyricsTrackStart = 0;    // Date.now() when track started
+let lyricsServerPos = 0;     // last known position from server
+let lyricsServerTs = 0;      // when we got that position
+
+function parseLRC(lrc){
+  const lines = lrc.trim().split('\n');
+  const parsed = [];
+  for(const line of lines){
+    const m = line.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+    if(m){
+      const time = parseInt(m[1])*60 + parseFloat(m[2]);
+      const text = m[3].trim();
+      if(text) parsed.push({time, text});
+    }
+  }
+  return parsed.sort((a,b)=>a.time-b.time);
+}
+
+function getLyricsPosition(){
+  // Estimate current position based on last server position + elapsed time
+  if(!lyricsServerPos && !lyricsTrackStart) return 0;
+  const elapsed = (Date.now() - lyricsServerTs) / 1000;
+  return lyricsServerPos + elapsed;
+}
+
+let lyricsLastActiveIdx = -2; // force first render
+
+function buildLyricsDOM(){
+  const content = document.getElementById('lyrics-content');
+  if(!content || !lyricsData) return;
+  if(lyricsData.length === 0){
+    content.innerHTML='<div class="lyrics-no-sync" style="padding:24px 0">'+
+      (content.dataset.plain||'')+'</div>';
+    return;
+  }
+  content.innerHTML = `
+    <div class="lyrics-track-info">
+      <div class="lyrics-track-title" id="ly-title">${currentTrackTitle}</div>
+      <div class="lyrics-track-artist" id="ly-artist">${currentTrackArtist}</div>
+    </div>` +
+    lyricsData.map((l,i)=>
+      `<div class="lyric-line" data-idx="${i}" data-time="${l.time}">${l.text}</div>`
+    ).join('');
+  lyricsLastActiveIdx = -2;
+}
+
+function renderLyrics(){
+  const content = document.getElementById('lyrics-content');
+  if(!content || !lyricsData || lyricsData.length===0) return;
+
+  const pos = getLyricsPosition();
+  let activeIdx = -1;
+  for(let i=0;i<lyricsData.length;i++){
+    if(lyricsData[i].time <= pos+0.05) activeIdx=i;
+    else break;
+  }
+
+  if(activeIdx === lyricsLastActiveIdx) return; // nothing changed, skip work
+  lyricsLastActiveIdx = activeIdx;
+
+  const lines = content.querySelectorAll('.lyric-line');
+  lines.forEach((el,i)=>{
+    el.classList.remove('active','past','near');
+    if(i===activeIdx) el.classList.add('active');
+    else if(i<activeIdx) el.classList.add('past');
+    else if(i===activeIdx+1||i===activeIdx+2) el.classList.add('near');
+  });
+
+  // Auto-scroll active line to center, smooth
+  if(activeIdx>=0 && lines[activeIdx]){
+    const activeLine = lines[activeIdx];
+    const view = document.getElementById('lyrics-view');
+    const lineTop = activeLine.offsetTop;
+    const lineH = activeLine.offsetHeight;
+    const viewH = view.clientHeight;
+    view.scrollTo({top: lineTop - viewH/2 + lineH/2, behavior:'smooth'});
+  }
+}
+
+function startLyricsSync(){
+  stopLyricsSync();
+  buildLyricsDOM();
+  renderLyrics();
+  lyricsSyncInterval = setInterval(renderLyrics, 80);
+}
+function stopLyricsSync(){
+  if(lyricsSyncInterval){ clearInterval(lyricsSyncInterval); lyricsSyncInterval=null; }
+}
+
+let lyricsLoading = false;
+async function fetchLyrics(){
+  const title  = currentTrackTitle;
+  const artist = currentTrackArtist;
+  if(!title||!BASE) return;
+
+  const key = title+'::'+artist;
+  if(key===lyricsTrackKey && lyricsData) return; // already loaded
+
+  lyricsTrackKey = key;
+  lyricsData = null;
+  lyricsLoading = true;
+
+  const content = document.getElementById('lyrics-content');
+  if(content) content.innerHTML=`
+    <div style="text-align:center;padding:80px 20px;color:rgba(255,255,255,0.2);font-size:14px;font-weight:300;font-style:italic;font-family:'Cormorant Garamond',serif">
+      Searching for lyrics…
+    </div>`;
+
+  try{
+    const params = new URLSearchParams({artist:artist||'',title:title||''});
+    const res = await fetch(`${BASE}/lyrics?${params}`,{signal:AbortSignal.timeout(8000)});
+    const d = await res.json();
+
+    if(d.synced){
+      lyricsData = parseLRC(d.synced);
+      if(content) content.dataset.plain = d.plain||'';
+      startLyricsSync();
+    } else if(d.plain){
+      lyricsData = [];
+      stopLyricsSync();
+      if(content) content.innerHTML=`
+        <div class="lyrics-track-info">
+          <div class="lyrics-track-title">${title}</div>
+          <div class="lyrics-track-artist">${artist}</div>
+        </div>
+        <div class="lyrics-no-sync" style="padding:0">${d.plain}</div>`;
+    } else {
+      lyricsData = [];
+      stopLyricsSync();
+      if(content) content.innerHTML=`
+        <div style="text-align:center;padding:80px 20px;color:rgba(255,255,255,0.2);font-size:14px;font-style:italic;font-family:'Cormorant Garamond',serif;line-height:1.8">
+          No lyrics found for<br><em style="color:rgba(255,255,255,0.4)">${title}</em>
+        </div>`;
+    }
+  }catch(e){
+    if(content) content.innerHTML=`
+      <div style="text-align:center;padding:80px 20px;color:rgba(255,255,255,0.18);font-size:13px;font-weight:300">
+        Could not load lyrics
+      </div>`;
+  }
+  lyricsLoading=false;
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────
+function switchTab(tab){
+  currentTab=tab;
+  const ON='background:rgba(218,172,76,0.15);border:1px solid rgba(218,172,76,0.35);color:rgba(218,172,76,1)';
+  const OFF='background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.35)';
+  ['tab-now','tab-lyrics','tab-stats'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const active = (id==='tab-now'&&tab==='player')||(id==='tab-lyrics'&&tab==='lyrics')||(id==='tab-stats'&&tab==='stats');
+    el.style.cssText+=';'+(active?ON:OFF);
+  });
+  document.getElementById('player-view').style.display = tab==='player'?'flex':'none';
+  document.getElementById('lyrics-view').style.display  = tab==='lyrics'?'block':'none';
+  document.getElementById('stats-view').style.display   = tab==='stats'?'block':'none';
+  if(tab==='stats') loadMobileStats();
+  if(tab==='lyrics' && currentTrackTitle) fetchLyrics();
+}
+
+async function loadMobileStats(){
+  if(!BASE) return;
+  try{
+    const [sr,rr]=await Promise.all([
+      fetch(`${BASE}/stats`,{signal:AbortSignal.timeout(4000)}),
+      fetch(`${BASE}/recent`,{signal:AbortSignal.timeout(4000)})
+    ]);
+    const d=await sr.json(); const recent=await rr.json();
+    const t=d.totals||{};
+    const tracks=(d.top_tracks||[]).slice(0,8);
+    const artists=(d.top_artists||[]).slice(0,6);
+    const monthly=(d.monthly||[]).slice(-6).reverse();
+
+    const gc=(content)=>`
+      <div style="background:rgba(255,255,255,0.032);border:1px solid rgba(255,255,255,0.08);border-top-color:rgba(255,255,255,0.11);border-radius:16px;padding:18px;margin-bottom:12px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(218,172,76,0.85) 50%,transparent);box-shadow:0 0 6px rgba(218,172,76,0.2)"></div>
+        <div style="position:absolute;bottom:0;left:22%;right:22%;height:1px;background:linear-gradient(90deg,transparent,rgba(190,145,58,0.5) 50%,transparent)"></div>
+        ${content}
+      </div>`;
+    const lbl=(v)=>`<div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:12px;font-weight:500">${v}</div>`;
+    const trackItem=(tr,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:rgba(218,172,76,${i<3?'0.85':'0.3'});min-width:16px;text-align:center">${i+1}</div>
+        <img src="${artUrl(tr.artist||'',tr.title||'')}" style="width:38px;height:38px;border-radius:7px;object-fit:cover;background:rgba(255,255,255,0.05);flex-shrink:0" onerror="this.style.background='rgba(255,255,255,0.06)'" crossorigin="anonymous">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.85)">${tr.title||tr.name||'—'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:1px;font-weight:300">${tr.artist||'—'}</div>
+        </div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.22);font-weight:300;flex-shrink:0">${tr.plays||tr.n||0} plays</div>
+      </div>`;
+
+    const fmtHrs=(s)=>(s/3600).toFixed(1)+'h';
+
+    document.getElementById('stats-content').innerHTML=
+      gc(`${lbl('Overview')}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${[['Total plays',(t.plays||0).toLocaleString()],['Listen time',(t.hours||0)+'h'],['Artists',t.artists||0],['Best streak',(t.streak||0)+' days']].map(([l,v])=>`
+          <div style="background:rgba(255,255,255,0.03);border-radius:12px;padding:14px 12px">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:rgba(255,255,255,0.88);letter-spacing:-1px;line-height:1">${v}</div>
+            <div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-top:5px;font-weight:500">${l}</div>
+          </div>`).join('')}
+        </div>`) +
+      gc(`${lbl('Top tracks')}<div>${tracks.map(trackItem).join('')}</div>`) +
+      gc(`${lbl('Top artists')}<div>${artists.map((a,i)=>trackItem({title:a.artist,artist:fmtHrs(a.secs||0)+' · '+a.plays+' plays',plays:null,artist2:a.artist},i).replace(artUrl(a.artist||'',''),artUrl(a.artist,''))).join('')}</div>`) +
+      gc(`${lbl('Monthly plays')}
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${monthly.map(m=>{
+            const max=Math.max(...monthly.map(x=>x.plays));
+            const pct=Math.round((m.plays/max)*100);
+            const [y,mo]=m.mo.split('-');
+            const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1];
+            return `<div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.38);margin-bottom:5px;font-weight:300">
+                <span>${mn} '${y.slice(2)}</span><span>${m.plays} plays · ${m.hours}h</span>
+              </div>
+              <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px">
+                <div style="height:3px;border-radius:2px;background:linear-gradient(90deg,rgba(185,142,60,.8),rgba(218,172,76,1));width:${pct}%"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`) +
+      gc(`${lbl('Recently played')}<div>${recent.slice(0,15).map((r,i)=>{
+        const d=new Date(r.played_at);
+        const when=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        return trackItem({...r,plays:when},i);
+      }).join('')}</div>`);
+  }catch(e){
+    document.getElementById('stats-content').innerHTML=
+      `<div style="text-align:center;padding:60px 0;color:rgba(255,255,255,0.2);font-size:13px">Could not load stats.</div>`;
+  }
+}
+
+// ── CSS ANIMATION ─────────────────────────────────────────────────
+const style=document.createElement('style');
+style.textContent='@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}';
+document.head.appendChild(style);
+
+// Init icons
+document.getElementById('play-btn').innerHTML=ICON_PLAY;
+document.getElementById('prev-btn').innerHTML=ICON_PREV;
+document.getElementById('next-btn').innerHTML=ICON_NEXT;
+
+// Check saved IP
+const savedIP2=localStorage.getItem('hw_ip');
+if(savedIP2){ document.getElementById('ip-input').value=savedIP2; }
+</script>
+</body>
+</html>

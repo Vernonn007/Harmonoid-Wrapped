@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harmonoid Wrapped</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04040a;
+  --text: rgba(255,255,255,0.92);
+  --text2: rgba(255,255,255,0.50);
+  --text3: rgba(255,255,255,0.24);
+  --gold: #c9a96e;
+  --gold2: #e8cc94;
+  --gold3: #f5e0b0;
+  --r: 20px;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'Inter', system-ui, sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{background:#04040a;color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6}
+body{min-height:100vh;padding-bottom:120px;overflow-x:hidden}
+
+/* ── AMBIENT CANVAS ──────────────────────────────────────────────── */
+#ambient{position:fixed;inset:0;z-index:0;pointer-events:none;background:#04040a}
+body{background:#04040a !important}
+#amb{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 3s ease}
+#amb.on{opacity:1}
+
+/* ── LIQUID GLASS BASE ───────────────────────────────────────────── */
+.glass{
+  position:relative;overflow:hidden;
+  background:rgba(255,255,255,0.032);
+  border:1px solid rgba(255,255,255,0.08);
+  border-top-color:rgba(255,255,255,0.11);
+  border-bottom-color:rgba(255,255,255,0.04);
+  border-radius:var(--r);
+  backdrop-filter:blur(28px) saturate(160%) brightness(0.96);
+  -webkit-backdrop-filter:blur(28px) saturate(160%) brightness(0.96);
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.5),
+    0 3px 10px rgba(0,0,0,0.3);
+  transition:all 0.35s cubic-bezier(.22,1,.36,1);
+}
+.glass:hover{
+  background:rgba(255,255,255,0.052);
+  border-color:rgba(255,255,255,0.12);
+  border-top-color:rgba(255,255,255,0.18);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    0 4px 14px rgba(0,0,0,0.32);
+  transform:translateY(-2px);
+}
+/* Gold top accent — polished, refined */
+.glass::before{
+  content:'';position:absolute;top:0;left:12%;right:12%;height:1px;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(140,95,30,0.0) 5%,
+    rgba(185,138,52,0.7) 25%,
+    rgba(218,172,76,0.95) 42%,
+    rgba(232,188,88,1.0) 50%,
+    rgba(218,172,76,0.95) 58%,
+    rgba(185,138,52,0.7) 75%,
+    rgba(140,95,30,0.0) 95%,
+    transparent 100%);
+  pointer-events:none;z-index:2;
+  box-shadow:
+    0 0 6px rgba(218,172,76,0.28),
+    0 0 16px rgba(180,135,55,0.12);
+}
+/* Gold bottom accent — dimmer, warm */
+.glass::after{
+  content:'';position:absolute;bottom:0;left:22%;right:22%;height:1px;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(130,88,25,0.0) 8%,
+    rgba(170,125,48,0.55) 30%,
+    rgba(200,155,65,0.78) 50%,
+    rgba(170,125,48,0.55) 70%,
+    rgba(130,88,25,0.0) 92%,
+    transparent 100%);
+  pointer-events:none;z-index:2;
+  box-shadow:0 0 5px rgba(190,145,58,0.18);
+}
+
+/* ── NAV ─────────────────────────────────────────────────────────── */
+nav{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;
+  padding:0 52px;height:60px;
+  background:rgba(4,4,10,0.72);
+  backdrop-filter:blur(40px) saturate(160%);
+  -webkit-backdrop-filter:blur(40px) saturate(160%);
+  border-bottom:1px solid rgba(255,255,255,0.055);
+}
+.nav-brand{
+  font-family:var(--serif);font-size:18px;font-weight:400;
+  color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:10px;letter-spacing:0.3px;
+}
+.nav-logo{
+  width:26px;height:26px;border-radius:7px;
+  background:linear-gradient(145deg,#8a6428,#d4a855);
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  box-shadow:0 2px 10px rgba(180,130,50,0.3);
+}
+.nav-tabs{display:flex;gap:1px;margin-left:auto}
+.nav-tab{
+  font-size:12.5px;font-weight:400;letter-spacing:0.1px;
+  padding:5px 18px;border-radius:30px;
+  background:transparent;border:none;color:var(--text2);cursor:pointer;transition:all .2s;
+}
+.nav-tab:hover{color:rgba(255,255,255,0.75);background:rgba(255,255,255,0.05)}
+.nav-tab.active{color:rgba(255,255,255,0.90);background:rgba(255,255,255,0.08);font-weight:500}
+
+/* ── PAGES ───────────────────────────────────────────────────────── */
+.page{display:none;position:relative;z-index:1;padding:48px 52px 0;max-width:820px;margin:0 auto}
+.page.active{display:block;animation:fadeUp .5s cubic-bezier(.22,1,.36,1)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── HERO ────────────────────────────────────────────────────────── */
+.hero{text-align:center;padding:72px 0 52px;position:relative}
+.hero::after{
+  content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:40px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.5;
+}
+.hero-eye{
+  font-size:9.5px;font-weight:400;letter-spacing:5px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:22px;opacity:.65;
+}
+.hero-title{
+  font-family:var(--serif);font-size:64px;font-weight:300;
+  letter-spacing:-.5px;line-height:1.04;color:rgba(255,255,255,0.88);margin-bottom:16px;
+}
+.hero-title em{font-style:italic;font-weight:300;color:#f5d98a;opacity:1;text-shadow:0 0 20px rgba(245,217,138,0.95),0 0 50px rgba(232,188,88,0.75),0 0 100px rgba(218,172,76,0.50),0 0 180px rgba(200,150,60,0.28);animation:goldGlow 3s ease-in-out infinite}
+@keyframes goldGlow{0%,100%{color:#f0d080;text-shadow:0 0 16px rgba(240,208,128,0.9),0 0 40px rgba(225,178,70,0.65),0 0 80px rgba(205,158,55,0.40),0 0 140px rgba(185,138,45,0.22)}50%{color:#fff8d0;text-shadow:0 0 28px rgba(255,240,160,1.0),0 0 65px rgba(245,210,100,0.85),0 0 120px rgba(228,185,75,0.60),0 0 220px rgba(210,165,60,0.35)}}
+.hero-sub{font-size:13.5px;color:var(--text2);font-weight:300;letter-spacing:.4px;font-style:italic;font-family:var(--serif)}
+
+/* ── STAT ROW ────────────────────────────────────────────────────── */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.stat-card{padding:24px 20px}
+.stat-label{font-size:9px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.stat-value{font-family:var(--serif);font-size:40px;font-weight:300;color:rgba(255,255,255,0.88);letter-spacing:-1.5px;line-height:1}
+.stat-unit{font-size:20px;color:var(--text2);font-weight:300;letter-spacing:0}
+.stat-sub{font-size:11.5px;color:var(--text2);margin-top:8px;font-weight:300;opacity:.8}
+
+/* ── DIVIDER LABEL ───────────────────────────────────────────────── */
+.sec-label{
+  font-size:9px;font-weight:500;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(255,255,255,0.28);margin-bottom:20px;padding-bottom:14px;
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+
+/* ── PANEL ───────────────────────────────────────────────────────── */
+.panel{padding:28px 30px;margin-bottom:12px}
+.chart-wrap{position:relative;width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+
+/* ── NOW PLAYING ─────────────────────────────────────────────────── */
+.np-card{display:flex;align-items:center;gap:18px;padding:20px 26px;margin-bottom:12px}
+.np-card::before{
+  background:linear-gradient(90deg,transparent,rgba(201,169,110,0.45),transparent)!important;
+}
+.np-art{
+  width:60px;height:60px;border-radius:12px;flex-shrink:0;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-size:26px;background:rgba(201,169,110,0.12);
+  box-shadow:0 8px 32px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.np-art img{width:100%;height:100%;object-fit:cover;display:block}
+.np-info{flex:1;min-width:0}
+.np-status{font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;opacity:.8}
+.np-track{font-family:var(--serif);font-size:22px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-artist{font-size:12px;color:var(--text2);font-weight:300;margin-top:2px;letter-spacing:.1px}
+.live-dot{width:4px;height:4px;border-radius:50%;background:#5db87a;display:inline-block;vertical-align:middle;animation:pdot 2.5s infinite}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.15}}
+.eq-bars{display:flex;align-items:flex-end;gap:3px;height:20px;margin-left:auto}
+.eq-bar{width:2px;border-radius:2px;background:var(--gold);animation:eq 1.1s ease-in-out infinite;opacity:.6;transition:height .08s}
+.eq-bar:nth-child(2){animation-delay:.2s}.eq-bar:nth-child(3){animation-delay:.4s}
+.eq-bar:nth-child(4){animation-delay:.13s}.eq-bar:nth-child(5){animation-delay:.3s}
+@keyframes eq{0%,100%{height:4px}50%{height:18px}}
+.beat-btn{
+  flex-shrink:0;padding:6px 16px;border-radius:20px;margin-left:14px;
+  font-size:11.5px;font-weight:400;letter-spacing:.2px;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);
+  color:var(--text2);transition:all .2s;
+}
+.beat-btn:hover{border-color:rgba(255,255,255,0.15);color:rgba(255,255,255,0.7)}
+.beat-btn.active{border-color:rgba(201,169,110,0.5);color:var(--gold);background:rgba(201,169,110,0.06)}
+
+/* ── TRACK LIST ──────────────────────────────────────────────────── */
+.track-item{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.032)}
+.track-item:last-child{border-bottom:none}
+.track-rank{font-family:var(--serif);font-size:13px;font-style:italic;color:rgba(255,255,255,0.2);min-width:18px;text-align:center}
+.track-rank.top{color:rgba(201,169,110,0.7)}
+.track-art{
+  width:42px;height:42px;border-radius:8px;flex-shrink:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  background:rgba(255,255,255,0.04);box-shadow:0 3px 12px rgba(0,0,0,0.5);
+}
+.track-art img{width:100%;height:100%;object-fit:cover;display:block}
+.track-info{flex:1;min-width:0}
+.track-name{font-size:13.5px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,0.85);letter-spacing:.02px}
+.track-artist{font-size:11.5px;color:var(--text2);font-weight:300;margin-top:2px;letter-spacing:.1px}
+.track-bar-wrap{width:60px;height:1px;background:rgba(255,255,255,0.06);border-radius:1px}
+.track-bar{height:1px;border-radius:1px;background:linear-gradient(90deg,rgba(180,140,70,.7),rgba(220,185,110,.5))}
+.track-plays{font-size:11px;color:rgba(255,255,255,0.25);text-align:right;min-width:52px;font-weight:300;letter-spacing:.1px}
+
+/* ── WRAPPED ─────────────────────────────────────────────────────── */
+.wrapped-hero{padding:84px 52px;text-align:center;margin-bottom:12px}
+.wrapped-big{
+  font-family:var(--serif);font-size:110px;font-weight:300;
+  letter-spacing:-4px;line-height:1;color:rgba(255,255,255,0.88);margin-bottom:8px;
+}
+.wrapped-unit-label{font-family:var(--serif);font-size:38px;font-weight:300;color:rgba(255,255,255,0.35)}
+.wrapped-label{font-size:13.5px;color:var(--text2);font-weight:300;margin-top:14px;letter-spacing:.4px}
+.wrapped-hint{font-size:12px;color:var(--text3);margin-top:8px;font-style:italic;font-family:var(--serif);opacity:.7}
+.w-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.w-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.w-tile{padding:28px 22px;text-align:center}
+.w-tile.left{text-align:left;padding:30px 26px}
+.w-tile:hover{transform:translateY(-2px)}
+.w-tile-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:14px;font-weight:500}
+.w-tile-value{font-family:var(--serif);font-size:21px;font-weight:400;color:rgba(255,255,255,0.85);margin-bottom:6px;letter-spacing:-.1px}
+.w-tile-sub{font-size:11px;color:var(--text2);font-weight:300;opacity:.8}
+.w-tile-big{font-family:var(--serif);font-size:48px;font-weight:300;letter-spacing:-2px;margin:8px 0 8px;color:rgba(255,255,255,0.85)}
+
+/* ── ACHIEVEMENTS ────────────────────────────────────────────────── */
+.ach-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ach-card{padding:22px 14px;text-align:center}
+.ach-card.on{border-color:rgba(201,169,110,0.22)!important;background:rgba(201,169,110,0.04)!important}
+.ach-icon{font-size:26px;margin-bottom:10px;display:block}
+.ach-name{font-size:12.5px;font-weight:500;margin-bottom:4px;color:rgba(255,255,255,0.75)}
+.ach-card:not(.on) .ach-name{color:rgba(255,255,255,0.2)}
+.ach-desc{font-size:11px;color:rgba(255,255,255,0.25);font-weight:300;line-height:1.45}
+.ach-card.on .ach-desc{color:var(--text2)}
+
+/* ── MISC ────────────────────────────────────────────────────────── */
+.loading{text-align:center;padding:100px 20px;color:rgba(255,255,255,0.2);font-size:13.5px;font-weight:300;letter-spacing:.8px;font-style:italic;font-family:var(--serif)}
+.error-box{background:rgba(20,0,0,0.4);border:1px solid rgba(255,60,60,0.1);border-radius:var(--r);padding:22px;color:rgba(255,130,130,.8);font-size:13px;margin-bottom:16px;font-weight:300}
+code{font-family:'Cascadia Code','Consolas',monospace;background:rgba(201,169,110,0.08);color:rgba(220,185,120,.8);padding:2px 7px;border-radius:4px;font-size:12px}
+a{color:rgba(201,169,110,.7)}
+</style>
+</head>
+<body>
+
+<div id="ambient"><canvas id="amb"></canvas></div>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">🎵</div>
+    Harmonoid <em style="font-family:var(--serif);font-style:italic;font-weight:300;color:var(--gold2);margin-left:4px">Wrapped</em>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button class="nav-tab" onclick="showPage('wrapped',this)">Wrapped</button>
+    <button class="nav-tab" onclick="showPage('charts',this)">Charts</button>
+    <button class="nav-tab" onclick="showPage('achievements',this)">Achievements</button>
+  </div>
+</nav>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="hero">
+    <div class="hero-eye">Your listening story</div>
+    <div class="hero-title">Harmonoid <em>Wrapped</em></div>
+    <div class="hero-sub">Every track you loved, every hour you listened.</div>
+  </div>
+  <div id="dash-content"><div class="loading">Loading your stats…</div></div>
+</div>
+
+<!-- WRAPPED -->
+<div class="page" id="page-wrapped">
+  <div id="wrapped-content"><div class="loading">Loading your Wrapped…</div></div>
+</div>
+
+<!-- CHARTS -->
+<div class="page" id="page-charts">
+  <div class="hero" style="padding:52px 0 44px">
+    <div class="hero-eye">Patterns &amp; insights</div>
+    <div class="hero-title" style="font-size:52px">Charts</div>
+  </div>
+  <div class="panel glass">
+    <div class="sec-label">Monthly plays</div>
+    <div class="chart-wrap" style="height:240px"><canvas id="monthlyChart"></canvas></div>
+  </div>
+  <div class="grid2">
+    <div class="panel glass">
+      <div class="sec-label">Artist share</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="artistPie"></canvas></div>
+    </div>
+    <div class="panel glass">
+      <div class="sec-label">Day of week</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="dowChart"></canvas></div>
+    </div>
+  </div>
+  <div class="panel glass">
+    <div class="sec-label">Listening hours per month</div>
+    <div class="chart-wrap" style="height:220px"><canvas id="hoursChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS -->
+<div class="page" id="page-achievements">
+  <div class="hero" style="padding:52px 0 44px">
+    <div class="hero-eye">Milestones</div>
+    <div class="hero-title" style="font-size:52px">Achievements</div>
+    <div class="hero-sub" id="ach-sub"></div>
+  </div>
+  <div class="ach-grid" id="ach-grid"></div>
+</div>
+
+<script>
+// ── AMBIENT BACKGROUND ────────────────────────────────────────────
+(function(){
+  const canvas = document.getElementById('amb');
+  const ctx = canvas.getContext('2d');
+  let W=0, H=0;
+  function resize(){ W=window.innerWidth; H=window.innerHeight; canvas.width=W; canvas.height=H; }
+  resize(); window.addEventListener('resize', resize);
+
+  const orbs = [
+    {x:.18, y:.22, vx:.00018, vy:.00012, r:1.05, c:[90,55,20]},
+    {x:.78, y:.18, vx:-.00014,vy:.00016, r:.95, c:[40,30,70]},
+    {x:.48, y:.78, vx:.00010, vy:-.00016,r:1.10, c:[25,50,65]},
+    {x:.82, y:.72, vx:-.00016,vy:-.00012,r:.90, c:[70,35,15]},
+    {x:.35, y:.50, vx:.00008, vy:.00010, r:.85, c:[55,25,60]},
+  ];
+  let targets = orbs.map(o=>o.c.slice());
+
+  window.setAmbientColors = function(cols){
+    if(!cols||!cols.length) return;
+    cols.forEach((c,i)=>{ if(targets[i]) targets[i]=c; });
+  };
+
+  function lerp(a,b,t){ return a+(b-a)*t }
+  let t=0, warmup=0;
+  function frame(){
+    t += 0.0004;
+    warmup = Math.min(1, warmup + 0.003); // slow fade in
+    ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    orbs.forEach((o,i)=>{
+      o.x += o.vx + Math.sin(t*(i+1)*.6)*.00010;
+      o.y += o.vy + Math.cos(t*(i+1)*.5)*.00008;
+      if(o.x<-.1) o.vx=Math.abs(o.vx); if(o.x>1.1) o.vx=-Math.abs(o.vx);
+      if(o.y<-.1) o.vy=Math.abs(o.vy); if(o.y>1.1) o.vy=-Math.abs(o.vy);
+      o.c[0]=lerp(o.c[0],targets[i][0],.012);
+      o.c[1]=lerp(o.c[1],targets[i][1],.012);
+      o.c[2]=lerp(o.c[2],targets[i][2],.012);
+      const px=o.x*W, py=o.y*H;
+      const rad=Math.max(W,H)*o.r;
+      const wob=1+Math.sin(t*(i*.7+1.3))*.07;
+      const [r,g,b]=o.c;
+      const grad=ctx.createRadialGradient(px,py,0,px,py,rad*wob);
+      grad.addColorStop(0,   `rgba(${r},${g},${b},${0.22*warmup})`);
+      grad.addColorStop(0.35,`rgba(${r},${g},${b},${0.09*warmup})`);
+      grad.addColorStop(0.65,`rgba(${r},${g},${b},${0.02*warmup})`);
+      grad.addColorStop(1,   `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle=grad;
+      ctx.beginPath(); ctx.arc(px,py,rad*wob,0,Math.PI*2); ctx.fill();
+    });
+    ctx.globalCompositeOperation='source-over';
+    // Vignette
+    const vig=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.72);
+    vig.addColorStop(0,'rgba(4,4,10,0.3)');
+    vig.addColorStop(.5,'rgba(4,4,10,0.5)');
+    vig.addColorStop(1,'rgba(4,4,10,0.82)');
+    ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+    requestAnimationFrame(frame);
+  }
+  frame();
+  setTimeout(()=>canvas.classList.add('on'),80);
+})();
+
+// ── COLOR EXTRACTION ──────────────────────────────────────────────
+let lastArtKey='';
+function extractAndApply(src){
+  if(!src||src===lastArtKey) return;
+  lastArtKey=src;
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=20; c.height=20;
+    const cx=c.getContext('2d'); cx.drawImage(img,0,0,20,20);
+    const d=cx.getImageData(0,0,20,20).data;
+    const buckets={};
+    for(let i=0;i<d.length;i+=4){
+      if(d[i+3]<120) continue;
+      const r=(d[i]>>3)<<3, g=(d[i+1]>>3)<<3, b=(d[i+2]>>3)<<3;
+      const k=`${r},${g},${b}`;
+      if(!buckets[k]) buckets[k]={r,g,b,n:0};
+      buckets[k].n++;
+    }
+    const sorted=Object.values(buckets)
+      .filter(({r,g,b})=>{const mx=Math.max(r,g,b),mn=Math.min(r,g,b);return mx>18&&mn<230&&mx-mn>20;})
+      .sort((a,b)=>b.n-a.n);
+    const picked=[];
+    for(const col of sorted){
+      if(picked.length>=5) break;
+      const near=picked.some(p=>Math.abs(p.r-col.r)+Math.abs(p.g-col.g)+Math.abs(p.b-col.b)<55);
+      if(!near) picked.push(col);
+    }
+    while(picked.length<5) picked.push({r:35,g:25,b:55});
+    // Boost brightness significantly so it shows through the dark bg
+    const bright=picked.map(({r,g,b})=>[
+      Math.min(220,Math.round(r*1.3+12)),
+      Math.min(220,Math.round(g*1.3+12)),
+      Math.min(220,Math.round(b*1.3+12)),
+    ]);
+    window.setAmbientColors(bright);
+  };
+  img.onerror=()=>{};
+  img.src=src;
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────
+let STATS=null, charts={};
+const EMOJIS=['🌙','🌸','✨','🌊','💜','🎸','🎶','⛰️','🎤','💥'];
+const ART_EMOJIS=['🎤','🎧','🎸','🎹','🎺','🎷','🎻','🥁','🪗','🎵'];
+const G={}; // chart color shorthand
+G.gold='rgba(201,169,110,0.75)'; G.goldDim='rgba(201,169,110,0.16)';
+G.grid='rgba(255,255,255,0.05)'; G.tick={color:'rgba(255,255,255,0.22)',font:{family:"'Inter',system-ui",size:11}};
+
+function fmt(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m'}
+function fmtMo(mo){const[y,m]=mo.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+" '"+y.slice(2)}
+function artUrl(a,t){return`http://localhost:8765/artwork?${new URLSearchParams({artist:a||'',title:t||''})}`}
+function killChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// ── NAV ───────────────────────────────────────────────────────────
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(STATS) renderCharts();
+}
+
+// ── RENDER DASHBOARD ──────────────────────────────────────────────
+function renderDash(){
+  const s=STATS,t=s.totals;
+
+  // Only update stat values — don't rebuild the whole DOM
+  const existing = document.getElementById('stat-row-cards');
+  if(existing){
+    document.getElementById('sv-plays').textContent  = t.plays.toLocaleString();
+    document.getElementById('sv-hours').innerHTML    = t.hours+'<span class="stat-unit">h</span>';
+    document.getElementById('sv-days').textContent   = t.days+' full days';
+    document.getElementById('sv-artists').textContent= t.artists;
+    document.getElementById('sv-streak').textContent = t.streak;
+  } else {
+    document.getElementById('dash-content').innerHTML=`
+      <div class="stat-row" id="stat-row-cards">
+        <div class="stat-card glass">
+          <div class="stat-label">Total plays</div>
+          <div class="stat-value" id="sv-plays">${t.plays.toLocaleString()}</div>
+          <div class="stat-sub">tracks played</div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-label">Listening time</div>
+          <div class="stat-value" id="sv-hours">${t.hours}<span class="stat-unit">h</span></div>
+          <div class="stat-sub" id="sv-days">${t.days} full days</div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-label">Artists</div>
+          <div class="stat-value" id="sv-artists">${t.artists}</div>
+          <div class="stat-sub">unique artists</div>
+        </div>
+        <div class="stat-card glass">
+          <div class="stat-label">Best streak</div>
+          <div class="stat-value" id="sv-streak">${t.streak}</div>
+          <div class="stat-sub">days in a row</div>
+        </div>
+      </div>
+
+      <div class="np-card glass" id="np-card">
+        <div class="np-art" id="np-art">🎵</div>
+        <div class="np-info">
+          <div class="np-status" id="np-status">Checking <span class="live-dot" style="background:rgba(255,255,255,0.2);animation:none"></span></div>
+          <div class="np-track" id="np-track">—</div>
+          <div class="np-artist" id="np-artist">—</div>
+        </div>
+        <div class="eq-bars" id="np-eq" style="display:none">
+          <div class="eq-bar" style="height:5px"></div>
+          <div class="eq-bar" style="height:14px"></div>
+          <div class="eq-bar" style="height:7px"></div>
+          <div class="eq-bar" style="height:18px"></div>
+          <div class="eq-bar" style="height:9px"></div>
+        </div>
+        <button class="beat-btn" id="beat-btn" onclick="toggleBeat()">Beat sync</button>
+      </div>
+
+      <div class="panel glass">
+        <div class="sec-label">Top tracks</div>
+        <div id="top-tracks"></div>
+      </div>
+
+      <div class="panel glass">
+        <div class="sec-label">Top artists</div>
+        <div id="top-artists"></div>
+      </div>
+
+      <div class="panel glass">
+        <div class="sec-label">Listening by hour</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="hourlyChart"></canvas></div>
+      </div>
+
+      <div style="margin-top:24px">
+        <button onclick="window.print()" style="padding:9px 22px;border-radius:20px;font-size:12px;font-weight:400;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2)">Print / Export PDF</button>
+      </div>
+    `;
+  }
+
+  renderList('top-tracks', s.top_tracks.slice(0,8), false);
+  renderList('top-artists', s.top_artists.slice(0,8), true);
+  killChart('hourlyChart');
+  charts['hourlyChart']=new Chart(document.getElementById('hourlyChart'),{
+    type:'bar',
+    data:{
+      labels:Array.from({length:24},(_,i)=>i%4===0?(i===0?'12am':i<12?i+'am':i===12?'12pm':(i-12)+'pm'):''),
+      datasets:[{data:s.hourly,backgroundColor:s.hourly.map((_,i)=>i>=18&&i<=23?G.gold:G.goldDim),borderRadius:3}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:G.grid},ticks:G.tick},y:{grid:{color:G.grid},ticks:G.tick}}}
+  });
+  // Seed ambient from top track if nothing playing
+  if(s.top_tracks.length && lastArtKey==='')
+    extractAndApply(artUrl(s.top_tracks[0].artist, s.top_tracks[0].title));
+}
+
+function renderList(id, items, isArtist){
+  const el=document.getElementById(id); if(!el) return;
+  const max=items[0]?.plays||1;
+  el.innerHTML=items.map((item,i)=>`
+    <div class="track-item">
+      <div class="track-rank ${i<3?'top':''}">${i+1}</div>
+      <div class="track-art" style="background:hsla(${220+i*20},25%,${9+i*2}%,1)">
+        <span>${isArtist?ART_EMOJIS[i%ART_EMOJIS.length]:EMOJIS[i%EMOJIS.length]}</span>
+        <img src="${artUrl(isArtist?item.artist:'',isArtist?'':item.title)&&artUrl(item.artist,isArtist?'':item.title)}"
+             loading="lazy" onerror="this.remove()" onload="this.previousElementSibling.style.display='none'">
+      </div>
+      <div class="track-info">
+        <div class="track-name">${isArtist?item.artist:item.title}</div>
+        <div class="track-artist">${isArtist?fmt(item.secs):item.artist}</div>
+      </div>
+      <div class="track-bar-wrap"><div class="track-bar" style="width:${Math.round(item.plays/max*100)}%"></div></div>
+      <div class="track-plays">${item.plays} plays</div>
+    </div>`).join('');
+}
+
+// ── RENDER WRAPPED ────────────────────────────────────────────────
+function renderWrapped(){
+  const s=STATS,t=s.totals,w=s.wrapped;
+  const ta=s.top_artists[0]||{}, tt=s.top_tracks[0]||{}, tal=s.top_albums[0]||{};
+  document.getElementById('wrapped-content').innerHTML=`
+    <div class="wrapped-hero glass">
+      <div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:24px;font-weight:500;opacity:.8">Your year in music</div>
+      <div class="wrapped-big">${t.hours}<span class="wrapped-unit-label">h</span></div>
+      <div class="wrapped-label">of music this year</div>
+      <div class="wrapped-hint">${t.days} full days of uninterrupted listening</div>
+    </div>
+    <div class="w-grid3">
+      <div class="w-tile glass"><div class="w-tile-label">Top artist</div><div class="w-tile-value">${ta.artist||'—'}</div><div class="w-tile-sub">${ta.plays||0} plays · ${fmt(ta.secs||0)}</div></div>
+      <div class="w-tile glass"><div class="w-tile-label">Top track</div><div class="w-tile-value">${tt.title||'—'}</div><div class="w-tile-sub">${tt.plays||0} plays this year</div></div>
+      <div class="w-tile glass"><div class="w-tile-label">Top album</div><div class="w-tile-value">${tal.album||'—'}</div><div class="w-tile-sub">${tal.artist||''}</div></div>
+    </div>
+    <div class="w-grid2">
+      <div class="w-tile glass left"><div class="w-tile-label">Peak hour</div><div class="w-tile-big">${w.peak_hour}</div><div class="w-tile-sub">Most active time of day</div></div>
+      <div class="w-tile glass left"><div class="w-tile-label">Best month</div><div class="w-tile-big">${w.best_month}</div><div class="w-tile-sub">${w.best_month_plays} plays · ${w.best_month_hours}h</div></div>
+    </div>
+    <div class="panel glass"><div class="sec-label">Top 5 of your year</div><div id="w-tracks"></div></div>
+  `;
+  renderList('w-tracks', s.top_tracks.slice(0,5), false);
+}
+
+// ── RENDER ACHIEVEMENTS ───────────────────────────────────────────
+function renderAchievements(){
+  const t=STATS.totals;
+  const list=[
+    {i:'🎵',n:'First spin',d:'Played your first track',u:t.plays>=1},
+    {i:'🔥',n:'On fire',d:'50+ plays tracked',u:t.plays>=50},
+    {i:'🌙',n:'Night owl',d:'Listened past midnight',u:(STATS.hourly[0]+STATS.hourly[1])>0},
+    {i:'📅',n:'Streak',d:'3-day listening streak',u:t.streak>=3},
+    {i:'💿',n:'Album lover',d:'5+ albums tracked',u:(STATS.top_albums?.length||0)>=5},
+    {i:'⏰',n:'Century',d:'10+ hours total',u:t.hours>=10},
+    {i:'🎯',n:'Obsessed',d:'One track 20+ plays',u:(STATS.top_tracks[0]?.plays||0)>=20},
+    {i:'🌍',n:'Explorer',d:'10+ artists',u:t.artists>=10},
+    {i:'⚡',n:'Speed run',d:'20 plays in one day',u:false},
+    {i:'🏆',n:'Top listener',d:'100h total',u:t.hours>=100},
+    {i:'🚀',n:'Legendary',d:'30-day streak',u:t.streak>=30},
+    {i:'🎸',n:'Dedicated',d:'500+ total plays',u:t.plays>=500},
+  ];
+  const n=list.filter(a=>a.u).length;
+  document.getElementById('ach-sub').textContent=`${n} of ${list.length} unlocked`;
+  document.getElementById('ach-grid').innerHTML=list.map(a=>`
+    <div class="ach-card glass ${a.u?'on':''}">
+      <span class="ach-icon" style="${a.u?'':'opacity:.2'}">${a.i}</span>
+      <div class="ach-name">${a.n}</div>
+      <div class="ach-desc">${a.d}</div>
+    </div>`).join('');
+}
+
+// ── RENDER CHARTS ─────────────────────────────────────────────────
+function renderCharts(){
+  if(!STATS) return;
+  const s=STATS, mo=s.monthly, labels=mo.map(m=>fmtMo(m.mo));
+  const opts=(extra={})=>Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:G.grid},ticks:{...G.tick,maxRotation:45}},y:{grid:{color:G.grid},ticks:G.tick}}},extra);
+
+  killChart('monthlyChart');
+  const mc=document.getElementById('monthlyChart');
+  if(mc) charts['monthlyChart']=new Chart(mc,{type:'bar',data:{labels,datasets:[{data:mo.map(m=>m.plays),backgroundColor:G.goldDim,hoverBackgroundColor:G.gold,borderRadius:4}]},options:opts()});
+
+  killChart('artistPie');
+  const ap=document.getElementById('artistPie');
+  if(ap) charts['artistPie']=new Chart(ap,{type:'doughnut',
+    data:{labels:s.top_artists.slice(0,6).map(a=>a.artist),datasets:[{
+      data:s.top_artists.slice(0,6).map(a=>a.plays),borderWidth:0,
+      backgroundColor:['rgba(201,169,110,.85)','rgba(201,169,110,.62)','rgba(201,169,110,.44)','rgba(160,130,80,.5)','rgba(120,100,60,.45)','rgba(90,72,45,.4)'],
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:true,position:'right',labels:{color:'rgba(255,255,255,0.42)',font:{family:"'Inter',system-ui",size:11},boxWidth:10,padding:10}}}}
+  });
+
+  killChart('dowChart');
+  const dc=document.getElementById('dowChart');
+  const maxDow=Math.max(...s.dow);
+  if(dc) charts['dowChart']=new Chart(dc,{type:'bar',data:{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    datasets:[{data:s.dow,backgroundColor:s.dow.map(v=>v===maxDow?G.gold:G.goldDim),borderRadius:4}]},options:opts()});
+
+  killChart('hoursChart');
+  const hc=document.getElementById('hoursChart');
+  if(hc) charts['hoursChart']=new Chart(hc,{type:'line',data:{labels,datasets:[{
+    data:mo.map(m=>m.hours),borderColor:'rgba(201,169,110,0.75)',backgroundColor:'rgba(201,169,110,0.07)',
+    borderWidth:1.5,pointBackgroundColor:'rgba(201,169,110,0.85)',pointRadius:3,fill:true,tension:0.45
+  }]},options:opts()});
+}
+
+// ── LOAD STATS ────────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const res=await fetch('http://localhost:8765/stats');
+    if(!res.ok) throw new Error();
+    STATS=await res.json();
+    if(STATS.error){ document.getElementById('dash-content').innerHTML=`<div class="error-box">⚠️ ${STATS.error}</div>`; return; }
+    renderDash(); renderWrapped(); renderAchievements(); renderCharts();
+  }catch(e){
+    document.getElementById('dash-content').innerHTML=`<div class="error-box">
+      Could not connect to the local server.<br><br>
+      Run: <code>python server.py</code> then open <a href="http://localhost:8765">http://localhost:8765</a>
+    </div>`;
+  }
+}
+
+// ── NOW PLAYING ───────────────────────────────────────────────────
+let lastNpKey='';
+let npArtCache={};
+let npCurrentSrc='';
+
+function ensureArtImg(){
+  const art=document.getElementById('np-art');
+  if(!art) return null;
+  let img=art.querySelector('img');
+  if(!img){
+    // Create once, keep forever
+    art.textContent='';
+    img=document.createElement('img');
+    img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;opacity:0;transition:opacity 0.4s ease';
+    art.appendChild(img);
+  }
+  return img;
+}
+
+async function loadNowPlaying(){
+  try{
+    const res=await fetch('http://localhost:8765/now-playing');
+    const np=await res.json();
+    const status=document.getElementById('np-status');
+    const track=document.getElementById('np-track');
+    const artistEl=document.getElementById('np-artist');
+    const eq=document.getElementById('np-eq');
+    if(!status) return;
+    let dT='—',dA='—';
+    if(np?.playing&&np.title){
+      status.innerHTML='Now playing <span class="live-dot"></span>';
+      dT=np.title; dA=np.artist||'';
+      track.textContent=dT; artistEl.textContent=dA; eq.style.display='flex';
+    } else {
+      status.innerHTML='Not playing <span class="live-dot" style="background:rgba(255,255,255,0.2);animation:none"></span>';
+      dT=np?.last_title||'—'; dA=np?.last_artist||'—';
+      track.textContent=dT+(np?.last_title?' · last played':'');
+      artistEl.textContent=dA; eq.style.display='none';
+    }
+    const key=dT+'::'+dA;
+    const newSrc=artUrl(dA,dT);
+
+    if(key!==lastNpKey&&dT!=='—'){
+      lastNpKey=key;
+      const img=ensureArtImg();
+      if(!img) return;
+      if(npArtCache[newSrc]){
+        // Cached — swap instantly
+        img.src=npArtCache[newSrc];
+        img.style.opacity='1';
+        npCurrentSrc=newSrc;
+        extractAndApply(newSrc);
+      } else {
+        // Load in background, swap on ready
+        const tmp=new Image();
+        tmp.onload=()=>{
+          npArtCache[newSrc]=newSrc;
+          const liveImg=ensureArtImg();
+          if(liveImg){
+            liveImg.style.opacity='0';
+            liveImg.src=newSrc;
+            liveImg.onload=()=>{ liveImg.style.opacity='1'; };
+          }
+          npCurrentSrc=newSrc;
+          extractAndApply(newSrc);
+        };
+        tmp.src=newSrc;
+      }
+    } else if(npCurrentSrc){
+      // Same track — just make sure img is still visible (restore if wiped)
+      const img=ensureArtImg();
+      if(img && img.src!==npCurrentSrc && npArtCache[npCurrentSrc]){
+        img.src=npCurrentSrc;
+        img.style.opacity='1';
+      }
+    }
+  }catch(e){}
+}
+
+// ── BEAT SYNC ─────────────────────────────────────────────────────
+let bActive=false,bCtx=null,bStream=null,bRAF=null;
+async function toggleBeat(){
+  const btn=document.getElementById('beat-btn');
+  if(bActive){ stopBeat(); return; }
+  try{
+    btn.textContent='Requesting…';
+    bStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+    const at=bStream.getAudioTracks();
+    if(!at.length){ alert('Enable "Share system audio" in the picker.'); bStream.getTracks().forEach(t=>t.stop()); btn.textContent='Beat sync'; return; }
+    bStream.getVideoTracks().forEach(t=>t.stop());
+    bCtx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+    const src=bCtx.createMediaStreamSource(bStream);
+    const an=bCtx.createAnalyser(); an.fftSize=256; an.smoothingTimeConstant=0.25;
+    src.connect(an);
+    const fd=new Uint8Array(an.frequencyBinCount);
+    let hist=[],last=0;
+    function detect(){
+      an.getByteFrequencyData(fd);
+      const end=Math.floor(fd.length*.12); let sum=0; for(let i=0;i<end;i++) sum+=fd[i];
+      const e=sum/end/255; hist.push(e); if(hist.length>16) hist.shift();
+      const avg=hist.reduce((a,b)=>a+b,0)/hist.length;
+      const now=performance.now();
+      if(e>avg*1.35+0.05&&now-last>140){
+        last=now;
+        document.querySelectorAll('.eq-bar').forEach(b=>{ b.style.height='22px'; setTimeout(()=>b.style.height='',80); });
+      }
+      bRAF=requestAnimationFrame(detect);
+    }
+    detect(); bActive=true; btn.textContent='Beat on'; btn.classList.add('active');
+    at[0].addEventListener('ended',stopBeat);
+  }catch(e){ const b=document.getElementById('beat-btn'); if(b) b.textContent='Beat sync'; }
+}
+function stopBeat(){
+  bActive=false;
+  if(bRAF) cancelAnimationFrame(bRAF);
+  if(bStream) bStream.getTracks().forEach(t=>t.stop());
+  if(bCtx) bCtx.close();
+  bStream=bCtx=null;
+  const b=document.getElementById('beat-btn');
+  if(b){ b.textContent='Beat sync'; b.classList.remove('active'); }
+}
+
+loadStats();
+loadNowPlaying();
+setInterval(loadStats,      15000);  // stats every 15s
+setInterval(loadNowPlaying,  2000);  // now playing every 2s
+</script>
+</body>
+</html>
