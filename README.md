@@ -2,6 +2,10 @@
 
 A Spotify-Wrapped-style listening stats dashboard for [Harmonoid](https://harmonoid.com/), with a live web dashboard, synced lyrics, and a mobile remote control — all running locally on your own machine.
 
+## 🎬 Demo
+
+![Harmonoid Wrapped Demo](assets/harmonoid-demo.gif)
+
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 
